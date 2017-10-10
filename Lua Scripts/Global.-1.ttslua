@@ -1,0 +1,567 @@
+--[[ Global Variables --]]
+num_10 = 5
+num_50 = 4
+num_100 = 3
+num_500 = 2
+num_1000 = 1
+
+deck = {}
+deck_guid = 'a0b2d5'
+infinite_bag_10 = {}
+infinite_bag_10_guid = 'b19df4'
+infinite_bag_50 = {}
+infinite_bag_50_guid = 'a33e95'
+infinite_bag_100 = {}
+infinite_bag_100_guid = '94e253'
+infinite_bag_500 = {}
+infinite_bag_500_guid = 'f0845d'
+infinite_bag_1000 = {}
+infinite_bag_1000_guid = 'aa24be'
+hit_positions = {}
+hit_positions['dealer'] = 0
+players = {}
+dealer_cards = {}
+dealer_card_values = {}
+initial_card_queue = {}
+hit_player_queue = {}
+bet_zone_guids = {'48c269', '6133d1', '37c2c4', '1f8bf2', 'f687dc', 'fc9e86', '364a2c', '53fe88', '09f314', '643f61', '18e9e3', '47644e', 'f436f7', '3eefa7', 'ed24e8', '337158'}
+bet_zones = {}
+
+--[[ The onLoad function. Called when a game finishes loading. --]]
+function onLoad ()
+    initial_card_queue = Queue.new()
+    hit_player_queue = Queue.new()
+
+    --[[ Get a reference to all the objects from the GUIDs. --]]
+    deck = getObjectFromGUID(deck_guid)
+    infinite_bag_10 = getObjectFromGUID(infinite_bag_10_guid)
+    infinite_bag_50 = getObjectFromGUID(infinite_bag_50_guid)
+    infinite_bag_100 = getObjectFromGUID(infinite_bag_100_guid)
+    infinite_bag_500 = getObjectFromGUID(infinite_bag_500_guid)
+    infinite_bag_1000 = getObjectFromGUID(infinite_bag_1000_guid)
+
+    local player_colors = getSeatedPlayers()
+
+    for i, v in ipairs(player_colors) do
+        dealActionTokensToPlayer(v, false)
+    end
+
+    for i, v in ipairs(bet_zone_guids) do
+        bet_zones[i] = getObjectFromGUID(v)
+    end
+end
+
+--[[ The Update function. Called once every frame. --]]
+function update ()
+    --[[ print('Update loop!') --]]
+end
+
+--[[ The OnPlayerChangedColor function. Mostly used when a player joins the game and chooses a non spectator color. --]]
+function onPlayerChangedColor(color)
+    if color != 'Grey' and color != 'Black' then
+        dealActionTokensToPlayer(color, true)
+        dealInitialChipsToPlayer(color)
+    end
+end
+
+--[[ The OnObjectEnterScriptingZone function. Called when an object enters a scripting zone. --]]
+function onObjectEnterScriptingZone(zone, object)
+    --[[ print('Object ' .. object.name .. ' entered Zone ' .. zone.name .. '!') --]]
+
+    --[[ Lock poker chip as soon as it enters one of the betting zones. --]]
+    --[[ While this seemed like a good idea, it wasn't very practical. --]]
+    --[[ if getVar(object, 'type') == 'chip' then
+        object.lock()
+    end --]]
+end
+
+--[[ The OnObjectLeaveScriptingZone function. Called when an object leaves a scripting zone. --]]
+function onObjectLeaveScriptingZone(zone, object)
+    --[[ print('Object ' .. object.name .. ' left Zone ' .. zone.name .. '!') --]]
+end
+
+function dealInitialChipsToPlayer(color)
+    for i = 1, num_10, 1 do
+        infinite_bag_10.call('dealChips', {color})
+    end
+
+    for i = 1, num_50, 1 do
+        infinite_bag_50.call('dealChips', {color})
+    end
+
+    for i = 1, num_100, 1 do
+        infinite_bag_100.call('dealChips', {color})
+    end
+
+    for i = 1, num_500, 1 do
+        infinite_bag_500.call('dealChips', {color})
+    end
+
+    for i = 1, num_1000, 1 do
+        infinite_bag_1000.call('dealChips', {color})
+    end
+end
+
+function dealActionTokensToPlayer(color, done)
+    players[color] = {}
+    players[color]['cards'] = {}
+    players[color]['done'] = done
+    hit_positions[color] = 1
+
+    --[[ Spawn player action tokens. --]]
+    if not Player[color].seated then
+        print('Player ' .. color .. ' is nil or not seated at the table!')
+        return
+    end
+
+    local player_hand = Player[color].getPlayerHand(color)
+
+    --[[ Hit token. --]]
+    local obj = {}
+    obj.type = 'Custom_Model'
+    obj.position = {player_hand['pos_x'] + player_hand['trigger_right_x'] * -3, 4, player_hand['pos_z'] + player_hand['trigger_right_z'] * -3}
+    obj.rotation = {0, player_hand['rot_y'] + 180, 0}
+    local hit_token = spawnObject(obj)
+
+    local mesh = {}
+    mesh.mesh = 'http://pastebin.com/nBssVJga'
+    mesh.diffuse = 'http://i.imgur.com/3lJzAJv.jpg'
+    mesh.material = 1
+
+    hit_token.setCustomObject(mesh)
+    hit_token.setLuaScript('player_color = \'' .. color .. '\'')
+
+    local button = {}
+    button.click_function = 'hitPlayer'
+    button.label = 'HIT'
+    button.function_owner = Global
+    button.position = {0, 0.14, 0}
+    button.rotation = {0, 0, 0}
+    button.width = 500
+    button.height = 500
+    button.font_size = 250
+
+    hit_token.createButton(button)
+
+    --[[ Stand token. --]]
+    obj = {}
+    obj.type = 'Custom_Model'
+    obj.position = {player_hand['pos_x'] + player_hand['trigger_right_x'] * 3, 4, player_hand['pos_z'] + player_hand['trigger_right_z'] * 3}
+    obj.rotation = {0, player_hand['rot_y'] + 180, 0}
+    local stand_token = spawnObject(obj)
+
+    mesh = {}
+    mesh.mesh = 'http://pastebin.com/nBssVJga'
+    mesh.diffuse = 'http://i.imgur.com/5Koza41.png'
+    mesh.material = 1
+
+    stand_token.setCustomObject(mesh)
+    stand_token.setLuaScript('player_color = \'' .. color .. '\'')
+
+    button = {}
+    button.click_function = 'stand'
+    button.label = 'STAND'
+    button.function_owner = Global
+    button.position = {0, 0.14, 0}
+    button.rotation = {0, 0, 0}
+    button.width = 800
+    button.height = 500
+    button.font_size = 250
+
+    stand_token.createButton(button)
+end
+
+--[[ Will be called by the Deck's script. --]]
+function setPlayerInitialCards (colorAndCards)
+    --[[ Wait 1 frame for cards pulled from Deck to run their LUA scripts. --]]
+    --[[ Use a queue to store data for the coroutine. Doesn't matter if *this* coroutine gets *this* table or another coroutine's table. --]]
+    Queue.pushright(initial_card_queue, colorAndCards)
+    startLuaCoroutine(Global, 'setPlayerInitialCardsCoroutine')
+end
+
+function setPlayerInitialCardsCoroutine()
+    coroutine.yield(0)
+
+    colorAndCards = Queue.popleft(initial_card_queue)
+
+    players[colorAndCards[1]]['cards'][1] = colorAndCards[2].getVar('value')
+    players[colorAndCards[1]]['cards'][2] = colorAndCards[3].getVar('value')
+
+    --[[ There is a more elegant way to do this using Lua table inserts and such, but this will work too. --]]
+    players[colorAndCards[1]]['num_cards'] = 2
+
+    --[[ Always return 1 at the end of a coroutine. --]]
+    return 1
+end
+
+function hitPlayer (GO)
+    --[[ Wait 1 frame for cards pulled from Deck to run their LUA scripts. --]]
+    --[[ Use a queue to store data for the coroutine. Doesn't matter if *this* coroutine gets *this* Object or another coroutine's Object. --]]
+    Queue.pushright(hit_player_queue, GO)
+    startLuaCoroutine(Global, 'hitPlayerCoroutine')
+end
+
+function hitPlayerCoroutine ()
+    local GO = Queue.popleft(hit_player_queue)
+    local player_color = GO.getVar('player_color')
+
+    local value = getValue(players[player_color]['cards'])
+    if value > 21 or players[player_color]['done'] == true then
+        return 1
+    end
+
+    print('Hit player! ' .. player_color)
+    print('Hit count before: ' .. hit_positions[player_color])
+    print('Deck name: ' .. deck.name)
+    player_card = deck.dealToColorWithOffset({hit_positions[player_color], 1, 6.5}, true, player_color)
+    hit_positions[player_color] = hit_positions[player_color] + 1
+
+    coroutine.yield(0)
+
+    players[player_color]['num_cards'] = players[player_color]['num_cards'] + 1
+    players[player_color]['cards'][players[player_color]['num_cards']] = player_card.getVar('value')
+    print('Added card to player ' .. player_color .. ': ' .. players[player_color]['cards'][players[player_color]['num_cards']])
+
+    value = getValue(players[player_color]['cards'])
+    local color = stringColorToRGB(player_color)
+
+    if value > 21 then
+        printToAll('Player ' .. player_color .. ' BUST! Hand value: ' .. value, {color['r'], color['g'], color['b']})
+        players[player_color]['done'] = true
+        checkPlayersDone()
+    else
+        printToAll('Player ' .. player_color .. ' hand value: ' .. value, {color['r'], color['g'], color['b']})
+    end
+
+    --[[ Always return 1 at the end of a coroutine. --]]
+    return 1
+end
+
+function stand (GO)
+    player_color = GO.getVar('player_color')
+
+    if players[player_color]['done'] == true then
+        return
+    end
+
+    print('Player stands! ' .. player_color)
+    players[player_color]['done'] = true
+    checkPlayersDone()
+end
+
+function checkPlayersDone ()
+    player_colors = getSeatedPlayers()
+    done = true
+
+    for i, v in ipairs(player_colors) do
+        if players[v]['done'] == false then
+            done = false
+        end
+    end
+
+    if done then
+        --[[ Need a coroutine because we'll spawn cards and need to immediately access them. --]]
+        startLuaCoroutine(Global, 'dealersTurn')
+    end
+end
+
+function dealersTurn()
+    printToAll('DEALER\'S TURN!', {1, 0, 0})
+
+    dealer_cards[1] = deck.getVar('dealer_card_1')
+    dealer_cards[1].flip()
+    dealer_card_values[1] = dealer_cards[1].getVar('value')
+    --[[ print('Dealer card 1: ' .. dealer_cards[1].name) --]]
+    --[[ print('Dealer card 1 value: ' .. dealer_card_values[1])  --]]
+
+    dealer_cards[2] = deck.getVar('dealer_card_2')
+    dealer_card_values[2] = dealer_cards[2].getVar('value')
+    --[[ print('Dealer card 2: ' .. dealer_cards[2].name) --]]
+    --[[ print('Dealer card 2 value: ' .. dealer_card_values[2]) --]]
+
+    dealer_card_position = 3
+
+    while getValue(dealer_card_values) < 17 do
+        local params = {}
+        params.position = {hit_positions['dealer'], 2, -2}
+        params.rotation = {0, 0, deck.getPosition().z}
+        params.flip = true
+        dealer_card = deck.takeObject(params)
+
+        hit_positions['dealer'] = hit_positions['dealer'] - 2.75
+        --[[ print('Dealer card: ' .. dealer_card.name) --]]
+        dealer_cards[dealer_card_position] = dealer_card
+        --[[ print('Dealer card: ' .. dealer_cards[dealer_card_position].name) --]]
+
+        --[[ Need to wait 1 frame for the card to be instantiated in-game before accessing its Lua script. --]]
+        coroutine.yield(0)
+
+        dealer_card_values[dealer_card_position] = dealer_cards[dealer_card_position].getVar('value')
+        --[[ print('Dealer card value: ' .. dealer_card_values[dealer_card_position]) --]]
+        dealer_card_position = dealer_card_position + 1
+    end
+
+    dealers_value = getValue(dealer_card_values)
+    printToAll('Dealer\'s value: ' .. dealers_value, {1, 0, 0})
+
+    if dealers_value > 21 then
+        printToAll('Dealer bust!', {1, 0, 0})
+    end
+
+    --[[ Check player cards for winners and losers. --]]
+    --[[ This function is called by the hit token lua script so 'players' doesn't exist in this global table. --]]
+    --[[ print('PLAYERS: ' .. players) --]]
+    local players = Global.getTable('players')
+    --[[ print('PLAYERS LOCAL: ' .. players) --]]
+
+    for i, v in pairs(players) do
+        print('Checking player ' .. i)
+
+        local win = false
+
+        --[[ Late joining players won't have any cards. Don't give them any winnings! --]]
+        --[[ Lua doesn't have a continue statement :( --]]
+        if #players[i]['cards'] > 0 then
+            local value = getValue(players[i]['cards'])
+
+            --[[ Dealer busts. --]]
+            if value < 22 and dealers_value > 21 then
+                win = true
+            --[[ Player busts. --]]
+            elseif value > 21 then
+                win = false
+            --[[ Player wins. --]]
+            elseif value < 22 and dealers_value < 22 and value > dealers_value then
+                win = true
+            end
+
+            local color = stringColorToRGB(i)
+            local betValueTable = getBetValue(i)
+            local betValue = betValueTable['value']
+
+            --[[ Delete the chips. --]]
+            for i, v in ipairs(betValueTable['chips']) do
+                destroyObject(v)
+            end
+
+            if win == true then
+                printToAll('Player ' .. i .. ' wins $' .. (betValue * 2) .. '!', {color['r'], color['g'], color['b']})
+                dealWinnings(i, betValue * 2)
+            else
+                printToAll('Player ' .. i .. ' loses $' .. betValue .. '!', {color['r'], color['g'], color['b']})
+            end
+        end
+    end
+
+    --[[ Deal token. --]]
+    local deal_obj = {}
+    deal_obj.type = 'Custom_Model'
+    deal_obj.position = {0, 5, 3}
+    deal_obj.rotation = {0, 0, 0}
+    deal_token = spawnObject(deal_obj)
+
+    local mesh = {}
+    mesh['mesh'] = 'http://pastebin.com/raw/LPcLCTMu'
+    mesh['diffuse'] = 'http://i.imgur.com/mETjV1Q.png'
+    mesh.material = 1
+
+    deal_token.setCustomObject(mesh)
+
+    local button = {}
+    button.click_function = 'cleanupAndDeal'
+    button.label = 'DEAL'
+    button.function_owner = Global
+    button.position = {0, 0.3, 0}
+    button.rotation = {0, 0, 0}
+    button.width = 1500
+    button.height = 1500
+    button.font_size = 750
+
+    deal_token.createButton(button)
+
+    --[[ Always return 1 at the end of a coroutine. --]]
+    return 1
+end
+
+function getBetValue(player_color)
+    local chips = {}
+
+    for i, v in ipairs(bet_zones) do
+        local objects = v.getObjects()
+
+        for j, w in ipairs(objects) do
+            if w.getVar('type') == 'chip' and w.getVar('player') == player_color then
+                if not objectExistsInList(chips, w) then
+                    chips[#chips+1] = w
+                end
+            end
+        end
+    end
+
+    local value = 0
+    for i, v in ipairs(chips) do
+        local num_in_stack = v.getQuantity()
+        if num_in_stack > 1 then
+            local stack_value = v.getVar('value')
+            for j = 1, num_in_stack, 1 do
+                value = value + stack_value
+            end
+        else
+            value = value + v.getVar('value')
+        end
+    end
+
+    ret = {}
+    ret['value'] = value
+    ret['chips'] = chips
+    return ret
+end
+
+function objectExistsInList(list, object)
+    local guid = object.getGUID()
+    for i, v in ipairs(list) do
+        if v.getGUID() == guid then
+            return true
+        end
+    end
+    return false
+end
+
+function dealWinnings(player_color, winnings)
+    local amount = winnings
+
+    print('Dealing $' .. amount .. ' to player ' .. player_color .. '!')
+    local num1000 = getNumChips(1000, amount)
+    amount = amount - num1000 * 1000
+    for i = 1, num1000, 1 do
+        infinite_bag_1000.call('dealChips', {player_color})
+    end
+
+    local num500 = getNumChips(500, amount)
+    amount = amount - num500 * 500
+    for i = 1, num500, 1 do
+        infinite_bag_500.call('dealChips', {player_color})
+    end
+
+    local num100 = getNumChips(100, amount)
+    amount = amount - num100 * 100
+    for i = 1, num100, 1 do
+        infinite_bag_100.call('dealChips', {player_color})
+    end
+
+    local num50 = getNumChips(50, amount)
+    amount = amount - num50 * 50
+    for i = 1, num50, 1 do
+        infinite_bag_50.call('dealChips', {player_color})
+    end
+
+    local num10 = getNumChips(10, amount)
+    for i = 1, num10, 1 do
+        infinite_bag_10.call('dealChips', {player_color})
+    end
+end
+
+function getNumChips(chipVal, total)
+    local numChips = math.floor(total / chipVal)
+    return numChips
+end
+
+function cleanupAndDeal()
+    print('cleanupAndDeal')
+    deck.reset()
+    resetGlobals()
+    deck.call('onLoad')
+    destroyObject(deal_token)
+end
+
+function resetGlobals()
+    players = {}
+    dealer_cards = {}
+    dealer_card_values = {}
+    hit_positions = {}
+    hit_positions['dealer'] = 0
+    initial_card_queue = Queue.new()
+    hit_player_queue = Queue.new()
+
+    player_colors = getSeatedPlayers()
+
+    for i, v in ipairs(player_colors) do
+        players[v] = {}
+        players[v]['cards'] = {}
+        players[v]['done'] = false
+        hit_positions[v] = 1
+    end
+end
+
+function getValue(values)
+    totalvalue = 0
+    value = 0
+    aceAs11 = false
+    for i, v in ipairs(values) do
+        if v == 'jack' then
+            value = 10
+        elseif v == 'queen' then
+            value = 10
+        elseif v == 'king' then
+            value = 10
+        elseif v == 'ace' then
+            if totalvalue < 11 then
+                value = 11
+                aceAs11 = true
+            else
+                value = 1
+            end
+        else
+            value = tonumber(v)
+        end
+
+        totalvalue = totalvalue + value
+    end
+
+    if totalvalue > 21 and aceAs11 then
+        totalvalue = totalvalue - 10
+    end
+
+    return totalvalue
+end
+
+--[[ Define a Double Queue --]]
+Queue = {}
+function Queue.new ()
+    return {first = 0, last = -1}
+end
+
+function Queue.pushleft (queue, value)
+    local first = queue.first - 1
+    queue.first = first
+    queue[first] = value
+end
+
+function Queue.pushright (queue, value)
+    local last = queue.last + 1
+    queue.last = last
+    queue[last] = value
+end
+
+function Queue.popleft (queue)
+    local first = queue.first
+    if first > queue.last then
+        error("queue is empty")
+    end
+    local value = queue[first]
+    queue[first] = nil        --[[ to allow garbage collection --]]
+    queue.first = first + 1
+    return value
+end
+
+function Queue.popright (queue)
+    local last = queue.last
+    if queue.first > last then
+        error("queue is empty")
+    end
+    local value = queue[last]
+    queue[last] = nil         --[[ to allow garbage collection --]]
+    queue.last = last - 1
+    return value
+end
+--[[ End Queue --]]

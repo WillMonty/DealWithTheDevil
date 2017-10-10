@@ -1,0 +1,41 @@
+--[[ Global variables --]]
+dealer_cards = {}
+colorAndCards = {}
+
+--[[ The onLoad function. Called when a game finishes loading. --]]
+function onLoad ()
+    self.shuffle()
+
+    --[[ Clear them out again for when we call this to deal another hand. --]]
+    dealer_cards = {}
+    colorAndCards = {}
+
+    --[[ Deal dealer cards. --]]
+    local params = {}
+    params.position = {5.5, 2, -2}
+    params.rotation = {0, 0, self.getRotation().z} --[[ Maintain deck orientation (face down) --]]
+    params.flip = false
+
+    dealer_card_1 = self.takeObject(params)
+    dealer_cards[1] = dealer_card_1
+
+    params = {}
+    params.position = {2.75, 2, -2}
+    params.rotation = {0, 0, self.getRotation().z}
+    params.flip = true
+
+    dealer_card_2 = self.takeObject(params)
+    dealer_cards[2] = dealer_card_2
+
+    --[[ Deal player cards. --]]
+    player_colors = getSeatedPlayers()
+    for i, v in ipairs(player_colors) do
+        card1 = self.dealToColorWithOffset({-1, 0, 6.5}, true, v)
+        card2 = self.dealToColorWithOffset({0, 1, 6.5}, true, v)
+
+        colorAndCards[1] = v
+        colorAndCards[2] = card1
+        colorAndCards[3] = card2
+        Global.call('setPlayerInitialCards', colorAndCards)
+    end
+end
