@@ -1,22 +1,6 @@
 --[[ Global Variables --]]
-num_10 = 5
-num_50 = 4
-num_100 = 3
-num_500 = 2
-num_1000 = 1
-
 deck = {}
 deck_guid = 'a0b2d5'
-infinite_bag_10 = {}
-infinite_bag_10_guid = 'b19df4'
-infinite_bag_50 = {}
-infinite_bag_50_guid = 'a33e95'
-infinite_bag_100 = {}
-infinite_bag_100_guid = '94e253'
-infinite_bag_500 = {}
-infinite_bag_500_guid = 'f0845d'
-infinite_bag_1000 = {}
-infinite_bag_1000_guid = 'aa24be'
 hit_positions = {}
 hit_positions['dealer'] = 0
 players = {}
@@ -24,8 +8,6 @@ dealer_cards = {}
 dealer_card_values = {}
 initial_card_queue = {}
 hit_player_queue = {}
-bet_zone_guids = {'48c269', '6133d1', '37c2c4', '1f8bf2', 'f687dc', 'fc9e86', '364a2c', '53fe88', '09f314', '643f61', '18e9e3', '47644e', 'f436f7', '3eefa7', 'ed24e8', '337158'}
-bet_zones = {}
 
 --[[ The onLoad function. Called when a game finishes loading. --]]
 function onLoad ()
@@ -34,20 +16,11 @@ function onLoad ()
 
     --[[ Get a reference to all the objects from the GUIDs. --]]
     deck = getObjectFromGUID(deck_guid)
-    infinite_bag_10 = getObjectFromGUID(infinite_bag_10_guid)
-    infinite_bag_50 = getObjectFromGUID(infinite_bag_50_guid)
-    infinite_bag_100 = getObjectFromGUID(infinite_bag_100_guid)
-    infinite_bag_500 = getObjectFromGUID(infinite_bag_500_guid)
-    infinite_bag_1000 = getObjectFromGUID(infinite_bag_1000_guid)
 
     local player_colors = getSeatedPlayers()
 
     for i, v in ipairs(player_colors) do
         dealActionTokensToPlayer(v, false)
-    end
-
-    for i, v in ipairs(bet_zone_guids) do
-        bet_zones[i] = getObjectFromGUID(v)
     end
 end
 
@@ -60,7 +33,6 @@ end
 function onPlayerChangedColor(color)
     if color != 'Grey' and color != 'Black' then
         dealActionTokensToPlayer(color, true)
-        dealInitialChipsToPlayer(color)
     end
 end
 
@@ -78,28 +50,6 @@ end
 --[[ The OnObjectLeaveScriptingZone function. Called when an object leaves a scripting zone. --]]
 function onObjectLeaveScriptingZone(zone, object)
     --[[ print('Object ' .. object.name .. ' left Zone ' .. zone.name .. '!') --]]
-end
-
-function dealInitialChipsToPlayer(color)
-    for i = 1, num_10, 1 do
-        infinite_bag_10.call('dealChips', {color})
-    end
-
-    for i = 1, num_50, 1 do
-        infinite_bag_50.call('dealChips', {color})
-    end
-
-    for i = 1, num_100, 1 do
-        infinite_bag_100.call('dealChips', {color})
-    end
-
-    for i = 1, num_500, 1 do
-        infinite_bag_500.call('dealChips', {color})
-    end
-
-    for i = 1, num_1000, 1 do
-        infinite_bag_1000.call('dealChips', {color})
-    end
 end
 
 function dealActionTokensToPlayer(color, done)
@@ -336,19 +286,11 @@ function dealersTurn()
             end
 
             local color = stringColorToRGB(i)
-            local betValueTable = getBetValue(i)
-            local betValue = betValueTable['value']
-
-            --[[ Delete the chips. --]]
-            for i, v in ipairs(betValueTable['chips']) do
-                destroyObject(v)
-            end
 
             if win == true then
-                printToAll('Player ' .. i .. ' wins $' .. (betValue * 2) .. '!', {color['r'], color['g'], color['b']})
-                dealWinnings(i, betValue * 2)
+                printToAll('Player ' .. i .. ' wins!', {color['r'], color['g'], color['b']})
             else
-                printToAll('Player ' .. i .. ' loses $' .. betValue .. '!', {color['r'], color['g'], color['b']})
+                printToAll('Player ' .. i .. ' loses!', {color['r'], color['g'], color['b']})
             end
         end
     end
@@ -383,40 +325,6 @@ function dealersTurn()
     return 1
 end
 
-function getBetValue(player_color)
-    local chips = {}
-
-    for i, v in ipairs(bet_zones) do
-        local objects = v.getObjects()
-
-        for j, w in ipairs(objects) do
-            if w.getVar('type') == 'chip' and w.getVar('player') == player_color then
-                if not objectExistsInList(chips, w) then
-                    chips[#chips+1] = w
-                end
-            end
-        end
-    end
-
-    local value = 0
-    for i, v in ipairs(chips) do
-        local num_in_stack = v.getQuantity()
-        if num_in_stack > 1 then
-            local stack_value = v.getVar('value')
-            for j = 1, num_in_stack, 1 do
-                value = value + stack_value
-            end
-        else
-            value = value + v.getVar('value')
-        end
-    end
-
-    ret = {}
-    ret['value'] = value
-    ret['chips'] = chips
-    return ret
-end
-
 function objectExistsInList(list, object)
     local guid = object.getGUID()
     for i, v in ipairs(list) do
@@ -425,40 +333,6 @@ function objectExistsInList(list, object)
         end
     end
     return false
-end
-
-function dealWinnings(player_color, winnings)
-    local amount = winnings
-
-    print('Dealing $' .. amount .. ' to player ' .. player_color .. '!')
-    local num1000 = getNumChips(1000, amount)
-    amount = amount - num1000 * 1000
-    for i = 1, num1000, 1 do
-        infinite_bag_1000.call('dealChips', {player_color})
-    end
-
-    local num500 = getNumChips(500, amount)
-    amount = amount - num500 * 500
-    for i = 1, num500, 1 do
-        infinite_bag_500.call('dealChips', {player_color})
-    end
-
-    local num100 = getNumChips(100, amount)
-    amount = amount - num100 * 100
-    for i = 1, num100, 1 do
-        infinite_bag_100.call('dealChips', {player_color})
-    end
-
-    local num50 = getNumChips(50, amount)
-    amount = amount - num50 * 50
-    for i = 1, num50, 1 do
-        infinite_bag_50.call('dealChips', {player_color})
-    end
-
-    local num10 = getNumChips(10, amount)
-    for i = 1, num10, 1 do
-        infinite_bag_10.call('dealChips', {player_color})
-    end
 end
 
 function getNumChips(chipVal, total)
@@ -549,7 +423,8 @@ function Queue.popleft (queue)
         error("queue is empty")
     end
     local value = queue[first]
-    queue[first] = nil        --[[ to allow garbage collection --]]
+    queue[first] = nil        --[[ to allow garbage collection
+ --]]
     queue.first = first + 1
     return value
 end
@@ -560,7 +435,8 @@ function Queue.popright (queue)
         error("queue is empty")
     end
     local value = queue[last]
-    queue[last] = nil         --[[ to allow garbage collection --]]
+    queue[last] = nil         --[[ to allow garbage collection
+ --]]
     queue.last = last - 1
     return value
 end
