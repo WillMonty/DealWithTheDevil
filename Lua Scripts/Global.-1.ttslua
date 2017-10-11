@@ -69,8 +69,9 @@ function dealActionTokensToPlayer(color, done)
     --[[ Hit token. --]]
     local obj = {}
     obj.type = 'Custom_Model'
-    obj.position = {player_hand['pos_x'] + player_hand['trigger_right_x'] * -3, 4, player_hand['pos_z'] + player_hand['trigger_right_z'] * -3}
+    obj.position = {player_hand['pos_x'] + player_hand['trigger_right_x'] * -3, 3, player_hand['pos_z'] + 4}
     obj.rotation = {0, player_hand['rot_y'] + 180, 0}
+    obj.sale = 0.8
     local hit_token = spawnObject(obj)
 
     local mesh = {}
@@ -96,9 +97,10 @@ function dealActionTokensToPlayer(color, done)
     --[[ Stand token. --]]
     obj = {}
     obj.type = 'Custom_Model'
-    obj.position = {player_hand['pos_x'] + player_hand['trigger_right_x'] * 3, 4, player_hand['pos_z'] + player_hand['trigger_right_z'] * 3}
+    obj.position = {player_hand['pos_x'] + player_hand['trigger_right_x'] * 3, 4, player_hand['pos_z'] + 4}
     obj.rotation = {0, player_hand['rot_y'] + 180, 0}
     local stand_token = spawnObject(obj)
+    --local stand_tokenff
 
     mesh = {}
     mesh.mesh = 'http://pastebin.com/nBssVJga'
